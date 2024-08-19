@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Web Shell</title>
+    <style>
+        body {
+            font-family: monospace;
+            background-color: #000;
+            color: #0f0;
+            margin: 0;
+            padding: 0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+        }
+        #container {
+            width: 70vw;
+            height: 70vh;
+            padding: 10px;
+            box-sizing: border-box;
+            background-color: #000;
+            border: 1px solid #0f0;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+        #terminal {
+            flex: 1;
+            overflow-y: auto;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+        }
+        .prompt {
+            display: inline;
+            color: #0f0;
+        }
+        .output {
+            color: #fff;
+        }
+        input {
+            background: transparent;
+            border: none;
+            color: #0f0;
+            outline: none;
+            width: 100%;
+            box-sizing: border-box;
+        }
+        input::placeholder {
+            color: #0f0;
+        }
+    </style>
+</head>
+<body>
+    <div id="container">
+        <div id="terminal">
+            <span class="prompt">Connecting to server...</span>
+        </div>
+        <input id="commandInput" type="text" placeholder="Type your command here...">
+    </div>
+    <script>
+        const terminal = document.getElementById('terminal');
+        const commandInput = document.getElementById('commandInput');
+        let ws;
+
+        // Function to initialize WebSocket connection
+        function initWebSocket() {
+            ws = new WebSocket('ws://localhost:8088/v1/NewClient?Session_id=1');
+
+            ws.onopen = () => {
+                terminal.innerHTML += `<div class="output">Connected to server</div>`;
+            };
+
+            ws.onmessage = (event) => {
+                const message = event.data;
+                terminal.innerHTML += `<div class="output">${message}</div>`;
+                terminal.scrollTop = terminal.scrollHeight;
+            };
+
+            ws.onerror = (error) => {
+                terminal.innerHTML += `<div class="output">WebSocket error: ${error.message}</div>`;
+            };
+
+            ws.onclose = () => {
+                terminal.innerHTML += `<div class="output">Disconnected from server</div>`;
+            };
+        }
+
+        // Function to handle command input
+        function handleCommandInput(event) {
+            if (event.key === 'Enter') {
+                const command = commandInput.value;
+                commandInput.value = '';
+
+                // Display command in terminal
+                terminal.innerHTML += `<div class="prompt">$ ${command}</div>`;
+                terminal.scrollTop = terminal.scrollHeight;
+
+                // Send command to server
+                if (ws.readyState === WebSocket.OPEN) {
+                    ws.send(command);
+                } else {
+                    terminal.innerHTML += `<div class="output">WebSocket is not connected</div>`;
+                }
+            } else if (event.ctrlKey && event.key === 'c') {
+                // Handle Ctrl+C
+                terminal.innerHTML += `<div class="output">^C</div>`;
+                terminal.scrollTop = terminal.scrollHeight;
+
+                // Send Ctrl+C signal to server
+                if (ws.readyState === WebSocket.OPEN) {
+                    ws.send('\x03'); // Send the ETX character to represent Ctrl+C
+                } else {
+                    terminal.innerHTML += `<div class="output">WebSocket is not connected</div>`;
+                }
+            }
+        }
+
+        commandInput.addEventListener('keydown', handleCommandInput);
+
+        // Initialize WebSocket connection on page load
+        initWebSocket();
+
+        // Focus input field on page load
+        commandInput.focus();
+    </script>
+</body>
+</html>
